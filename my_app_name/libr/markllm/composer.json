@@ -1,0 +1,28 @@
+{
+    "name": "yourname/marks-llm",
+    "description": "Marks LLM PHP SDK and client",
+    "keywords": [
+        "marks",
+        "llm",
+        "php",
+        "sdk",
+        "rest",
+        "api"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Your Name",
+            "homepage": "https://your-website.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "MarkLLM\\": "MarkLLM/"
+        }
+    }
+}
