@@ -133,8 +133,20 @@
         <div class="intro-card">
             <div class="intro-title">Marking for <?= h($user->name) ?></div>
             <div class="intro-desc">
-                Below are the assessments and attempts for this student. Click an attempt to view marking details.
+                Below are the assessments submitted and attempts for this student. Click an attempt to view marking details.
             </div>
+            <?php if (!empty($data)): ?>
+                <div style="margin-top: 20px;">
+                    <?= $this->Form->postLink(
+                        'Mark All Attempts',
+                        ['controller' => 'Assessments', 'action' => 'markAll', $user->id],
+                        [
+                            'class' => 'mark-all-btn',
+                            'confirm' => 'Are you sure you want to mark all attempts? This may take a moment.'
+                        ]
+                    ) ?>
+                </div>
+            <?php endif; ?>
         </div>
         <?php foreach ($data as $block): ?>
             <div class="assessment-card">

@@ -140,13 +140,26 @@ public function mark($assessmentId, $attemptNumber,$userId)
         $questionEntity = $questionsTable->get($answer->question_id);
 
         $question = new \MarkLLM\Models\QuestionModel(
-            $questionEntity->question_text,
-            $questionEntity->model_answer,
-            $answer->answer_text
+
+        );
+        $question->setQuestionType($questionEntity->question_type);
+        $question->setQuestion($questionEntity->question_text);
+        $question->setModelAnswer($questionEntity->model_answer);
+        
+        // Replace debug() with Log::write()
+        $this->log(json_encode([
+            'question_text' => $questionEntity->question_text,
+            'model_answer' => $questionEntity->model_answer
+        ]), 'debug');
+
+        $answerobj= new \MarkLLM\Models\Answers(
+            $answer->question_id,
+            $answer->answer_text,
+            $answer->student_id
         );
         
         try {
-            $marks = $client->getMarks($question);
+            $marks = $client->getMarks($question, $answerobj);
             if ($marks) {
                 $answer->ai_score = $marks->getScore();
                 $answer->ai_feedback = $marks->getFeedback();
@@ -163,6 +176,142 @@ public function mark($assessmentId, $attemptNumber,$userId)
     }
 
     $this->Flash->success('Marking complete!');
+    return $this->redirect($this->referer());
+}
+public function markAll($userId)
+{
+    $answersTable = $this->getTableLocator()->get('Answers');
+    $questionsTable = $this->getTableLocator()->get('Questions');
+    
+    // Get all unmarked answers for this student
+    $answers = $answersTable->find()
+        ->where([
+            'OR' => [
+                'ai_score IS NULL',
+                'ai_feedback IS NULL'
+            ]
+        ])
+        ->toArray();
+
+    if (empty($answers)) {
+        $this->Flash->success('All attempts are already marked!');
+        return $this->redirect($this->referer());
+    }
+
+    
+
+    $markedCount = 0;
+    $question_arr=[];
+    $answer_arr=[];
+    foreach ($answers as $answer) {
+        try {
+            $questionEntity = $questionsTable->get($answer->question_id);
+            
+            // Log the data being processed
+            $this->log('Processing answer: ' . json_encode([
+                'question_id' => $answer->question_id,
+                'assessment_id' => $answer->assessment_id,
+                'answer_text' => $answer->answer_text,
+                'question_text' => $questionEntity->question_text,
+                'model_answer' => $questionEntity->model_answer
+            ]), 'debug');
+
+            // Create question model with constructor parameters
+            $question = new \MarkLLM\Models\QuestionModel(
+                
+            );
+            $question->setQuestion($questionEntity->question_text);
+            $question->setModelAnswer($questionEntity->model_answer);
+            $question->setQuestionId($questionEntity->id.'_'.$answer->assessment_id);
+            $question_arr[] = $question;
+            // Set additional properties
+
+            // Create answer object with only the answer text
+            $answerobj = new \MarkLLM\Models\Answers(
+            $answer->question_id,
+            $answer->answer_text,
+            strval($answer->student_id)
+        );
+            $answerobj->setQuestionId($answer->question_id.'_'.$answer->assessment_id);
+            $answer_arr[] = $answerobj;
+
+            // $marks = $client->getMarks($question, $answerobj);
+            // if ($marks) {
+            //     $answer->ai_score = $marks->getScore();
+            //     $answer->ai_feedback = $marks->getFeedback();
+            //     $answersTable->save($answer);
+            //     $markedCount++;
+                
+            //     // Log successful marking
+            //     $this->log('Successfully marked answer: ' . json_encode([
+            //         'question_id' => $answer->question_id,
+            //         'score' => $marks->getScore(),
+            //         'feedback' => $marks->getFeedback()
+            //     ]), 'debug');
+            // }
+        } catch (\MarkLLM\Exception\ApiException $e) {
+            $this->log('API Error: ' . $e->getMessage(), 'error');
+            continue;
+        } catch (\Exception $e) {
+            $this->log('Error marking answer: ' . $e->getMessage(), 'error');
+            continue;
+        }
+        $client = new \MarkLLM\Client\MarksClient(
+        null,
+        "https://ai-marker.australiacentral.cloudapp.azure.com/api/",
+        'aik_Nk8LAWcyDGsw8aVNbI254m7xzCUD2HRzr_QzQMcc0Q4',
+        ['verify' => false]
+    );
+
+    $status = $client->checkHealth();
+    if ($status != 'healthy') {
+        $this->Flash->error('AI Marker service is currently unavailable.');
+        return $this->redirect($this->referer());
+    }
+    }
+    try {
+        $marks = $client->getMarksAll($question_arr, $answer_arr);
+        if (empty($marks)) {
+            $this->Flash->error('No marks returned from the API.');
+            return $this->redirect($this->referer());
+        }
+        
+        if ($marks) {
+            foreach ($marks as $mark) {
+                // Get the response ID which should be in format "questionId_assessmentId"
+                $responseId = $mark->getResponseId();
+                if (!$responseId) {
+                    continue;
+                }
+                
+                // Split the ID to get original question_id and assessment_id
+                list($studentId, $questionId, $assessmentId) = explode('_', $responseId);
+
+                // Find the corresponding answer in the answers array
+                $answer = current(array_filter($answers, function($a) use ($questionId, $assessmentId) {
+                    return $a->question_id == $questionId && $a->assessment_id == $assessmentId;
+                }));
+                
+                if ($answer && ($mark->getScore() !== null || $mark->getFeedback() !== null)) {
+                    $answer->ai_score = $mark->getScore();
+                    $answer->ai_feedback = $mark->getFeedback();
+                    $answersTable->save($answer);
+                    $markedCount++;
+                    
+                    // Log successful update
+                    $this->log("Updated answer for question {$questionId}, assessment {$assessmentId}", 'debug');
+                }
+            }
+        }
+    } catch (\MarkLLM\Exception\ApiException $e) {
+        $this->Flash->error('API Errorgggg: ' . $e->getMessage());
+        echo $e;
+        echo $e->getResponseBody();
+    } catch (\Exception $e) {
+        $this->Flash->error('Unexpected error: ' . $e->getMessage());
+    }
+
+    $this->Flash->success("Successfully marked {$markedCount} answers!");
     return $this->redirect($this->referer());
 }
 }

@@ -4,15 +4,9 @@ use \ArrayAccess;
 use \JsonSerializable;
 use ReturnTypeWillChange;
 
-class QuestionModel implements ArrayAccess, \JsonSerializable
+class Answers implements ArrayAccess, JsonSerializable
 {
     const DISCRIMINATOR = null;
-
-    public function jsonSerialize(): mixed
-    {
-        return $this->container;
-    }
-
 
     protected $container = [];
 
@@ -21,13 +15,11 @@ class QuestionModel implements ArrayAccess, \JsonSerializable
      *
      * @param array $data Associated array of property values
      */
-    public function __construct($question_text = null, $question_type = 'short_answer', $model_answer = null, $requirements = '', $question_id = null)
+    public function __construct($question_id = null,  $student_answer = null, $student_id = null)
     {
-        $this->container['question_text'] = $question_text;
-        $this->container['question_type'] = $question_type;
-        $this->container['model_answer'] = $model_answer;
-        $this->container['requirements'] = $requirements;
         $this->container['question_id'] = $question_id;
+        $this->container['student_answer'] = $student_answer;
+        $this->container['student_id'] = $student_id;
     }
     
     /**
@@ -35,101 +27,76 @@ class QuestionModel implements ArrayAccess, \JsonSerializable
      *
      * @return string|null
      */
-    public function getQuestion()
-    {
-        return $this->container['question_text'] ?? null;
-    }
     public function getQuestionId()
     {
         return $this->container['question_id'] ?? null;
     }
-    public function setQuestionId($question_id)
-    {
-        $this->container['question_id'] = $question_id;
-        return $this;
-    }
+
     /**
      * Sets question.
      *
      * @param string $question
      * @return self
      */
-    public function setQuestion($question_text)
+    public function setQuestionId($question_id  = null)
     {
-        $this->container['question_text'] = $question_text;
+        $this->container['question_id'] = $question_id;
         return $this;
     }
+
     /**
-     * Gets requirements.
+     * Gets student_answer.
      *
      * @return string|null
      */
-    public function getRequirements()
+    public function getStudentAnswer()
     {
-        return $this->container['requirements'] ?? null;
+        return $this->container['student_answer'] ?? null;
     }
 
     /**
-     * Sets requirements.
+     * Sets student_answer.
      *
-     * @param string|null $requirements
+     * @param string|null $student_answer
      * @return self
      */
-    public function setRequirements($requirements)
+    public function setStudentAnswer($student_answer)
     {
-        $this->container['requirements'] = $requirements;
+        $this->container['student_answer'] = $student_answer;
         return $this;
     }
-
     /**
-     * Gets question_type.
+     * Gets student_id.
      *
-     * @return string|null
+     * @return int|null
      */
-    public function getQuestionType()
+    public function getStudentId()
     {
-        return $this->container['question_type'] ?? null;
+        return $this->container['student_id'] ?? null;
     }
-
     /**
-     * Sets question_type.
+     * Sets student_id.
      *
-     * @param string $question_type
+     * @param int|null $student_id
      * @return self
      */
-    public function setQuestionType($question_type)
+    public function setStudentId($student_id)
     {
-        $this->container['question_type'] = $question_type;
+        $this->container['student_id'] = $student_id;
         return $this;
     }
-
     /**
-     * Gets model_answer.
+     * Serializes the object to a value that can be serialized natively by json_encode().
      *
-     * @return string|null
+     * @return mixed Returns data which can be serialized by json_encode(), which is a value
+     * of any type other than a resource.
      */
-    public function getModelAnswer()
-    {
-        return $this->container['model_answer'] ?? null;
+    public function jsonSerialize(): mixed
+    {   
+        return $this->container;
     }
 
-    /**
-     * Sets model_answer.
-     *
-     * @param string $model_answer
-     * @return self
-     */
-    public function setModelAnswer($model_answer)
-    {
-        $this->container['model_answer'] = $model_answer;
-        return $this;
-    }
 
-   
-     
-     
-     
-   
 
     /**
      * Returns true if offset exists. False otherwise.

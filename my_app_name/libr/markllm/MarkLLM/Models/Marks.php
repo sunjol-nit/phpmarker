@@ -1,11 +1,17 @@
 <?php
 namespace MarkLLM\Models;
 use \ArrayAccess;
+use \JsonSerializable;
 use ReturnTypeWillChange;
 
-class Marks implements ArrayAccess
+class Marks implements ArrayAccess, \JsonSerializable
 {
     const DISCRIMINATOR = null;
+
+    public function jsonSerialize(): mixed
+    {
+        return $this->container;
+    }
 
    
 
@@ -26,8 +32,30 @@ class Marks implements ArrayAccess
         $this->container['metadata'] = $data['metadata'] ?? null;
         $this->container['status'] = $data['status'] ?? null;
         $this->container['timestamp'] = $data['timestamp'] ?? null;
+        $this->container['response_id'] = $data['response_id'] ?? null;
     }
     
+    /**
+     * Gets response_id.
+     *
+     * @return string|null
+     */
+    public function getResponseId()
+    {           
+        return $this->container['response_id'] ?? null;
+    }
+    /**
+     * Sets response_id.
+     *
+     * @param string $response_id
+     * @return self
+     */
+    public function setResponseId($response_id)
+    {
+        $this->container['response_id'] = $response_id;
+        return $this;
+    }
+
     /**
      * Gets feedback.
      *

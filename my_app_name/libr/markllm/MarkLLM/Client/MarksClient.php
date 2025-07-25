@@ -4,7 +4,9 @@ namespace MarkLLM\Client;
 use GuzzleHttp\Client;
 use MarkLLM\Models\QuestionModel;
 use MarkLLM\Models\Marks;
+use MarkLLM\Models\Answers;
 use MarkLLM\Exception\ApiException;
+use Cake\Log\Log;
 
 class MarksClient
 {
@@ -106,7 +108,7 @@ class MarksClient
         }
 
         try {
-            $response = $this->client->get('v1/health/', $this->addHeaders());
+            $response = $this->client->get('v2/health/', $this->addHeaders());
             $body = $response->getBody()->getContents();
             $data = json_decode($body, true);
 
@@ -133,7 +135,7 @@ class MarksClient
      * @throws \InvalidArgumentException
      * @throws ApiException
      */
-    public function getMarks(QuestionModel $question): Marks
+    public function getMarks(QuestionModel $question, Answers $answer): Marks
     {
         if (!$this->client) {
             throw new \RuntimeException('HTTP client is not initialized.');
@@ -144,12 +146,25 @@ class MarksClient
         }
 
         $data = $question->jsonSerialize();
+        
+        // Log the initial question data
+        Log::write('debug', 'Question Data before student answer: ' . json_encode($data, JSON_PRETTY_PRINT));
+        
+        $data['student_answer'] = $answer->getStudentAnswer();
+        
+        // Log the complete data being sent
+        Log::write('debug', 'Complete marking data: ' . json_encode($data, JSON_PRETTY_PRINT));
 
-        if (empty($data['question']) || empty($data['model_answer'])) {
+        if (empty($data['question_text']) || empty($data['model_answer'])) {
+            Log::write('error', 'Empty required fields: ' . json_encode([
+                'question_empty' => empty($data['question_text']),
+                'model_answer_empty' => empty($data['model_answer'])
+            ]));
             throw new \InvalidArgumentException('Question and model answer must not be empty.');
         }
 
         if (empty($data['student_answer'])) {
+            Log::write('debug', 'No student answer provided');
             return new Marks([
                 'score' => 0,
                 'feedback' => 'No answer provided',
@@ -157,12 +172,19 @@ class MarksClient
         }
 
         try {
+            // Log the API request
+            Log::write('debug', 'Sending request to marking API');
+            
             $response = $this->client->post(
-                'v1/marking/',
+                'v2/marking/',
                 $this->addHeaders(['json' => $data])
             );
 
             $body = $response->getBody()->getContents();
+            
+            // Log the API response
+            Log::write('debug', 'API Response: ' . $body);
+            
             $responseData = json_decode($body, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
@@ -176,7 +198,72 @@ class MarksClient
             return new Marks($responseData);
 
         } catch (\Throwable $e) {
+            Log::write('error', 'API Error: ' . $e->getMessage());
             throw $this->wrapRequestException($e);
         }
     }
-}
+    public function getMarksAll(array $questions, array $answers)
+    {
+        if (!$this->client) {
+            throw new \RuntimeException('HTTP client is not initialized.');
+        }
+
+        foreach ($questions as $question) {
+            if (!$question instanceof QuestionModel) {
+                throw new \InvalidArgumentException('Parameter $question must be an instance of QuestionModel.');
+            }
+
+        $output = [
+    'questions' => $questions,
+    'responses' => $answers,
+    ];
+        $json = str_replace(["\n", "\r"], '', json_encode($output));
+
+        // Log the initial question data
+        Log::write('debug', 'Initial Question Data: ' . $json);
+
+        // Log the complete data being sent
+
+        
+
+        try {
+            // Log the API request
+            
+            $response = $this->client->post(
+                'v2/batch/',
+                $this->addHeaders(['json' => $output])
+            );
+
+            $body = $response->getBody()->getContents(); // this is a string
+Log::debug('Raw API Response: ' . $body);
+            $data = json_decode($body, true);
+            $marksList= [];
+            foreach ($data['results'] as $item) {
+        try {
+            $marksList[] = new Marks($item);
+        } catch (\Throwable $e) {
+            Log::error('Failed to create Marks object: ' . $e->getMessage());
+            // Optionally: continue, throw, or add null
+        }
+    }
+    return $marksList;
+            
+            // Log the API response
+            
+            // $responseData = json_decode($body, true);
+            // if (json_last_error() !== JSON_ERROR_NONE) {
+            //     throw new ApiException('Invalid JSON response: ' . json_last_error_msg());
+            // }
+
+            // if (!is_array($responseData) || !isset($responseData['score'])) {
+            //     throw new ApiException('Invalid response format: missing expected fields.');
+            // }
+
+            // return new Marks($responseData);
+
+        } catch (\Throwable $e) {
+            Log::write('error', 'API Error:yo yoyoyoyoyyo ' . $e->getMessage());
+            throw $this->wrapRequestException($e);
+        }
+    }
+}}
