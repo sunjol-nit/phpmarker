@@ -262,7 +262,7 @@ Log::debug('Raw API Response: ' . $body);
             // return new Marks($responseData);
 
         } catch (\Throwable $e) {
-            Log::write('error', 'API Error:yo yoyoyoyoyyo ' . $e->getMessage());
+            Log::write('error', 'API Error:' . $e->getMessage());
             throw $this->wrapRequestException($e);
         }
     }

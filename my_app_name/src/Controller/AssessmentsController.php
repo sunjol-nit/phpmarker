@@ -288,8 +288,8 @@ public function markAll($userId)
                 list($studentId, $questionId, $assessmentId) = explode('_', $responseId);
 
                 // Find the corresponding answer in the answers array
-                $answer = current(array_filter($answers, function($a) use ($questionId, $assessmentId) {
-                    return $a->question_id == $questionId && $a->assessment_id == $assessmentId;
+                $answer = current(array_filter($answers, function($a) use ($questionId, $assessmentId,$studentId) {
+                    return $a->question_id == $questionId && $a->assessment_id == $assessmentId && $a->student_id == $studentId;
                 }));
                 
                 if ($answer && ($mark->getScore() !== null || $mark->getFeedback() !== null)) {
